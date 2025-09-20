@@ -15,6 +15,7 @@
       color: #2c1a0c;
       text-align: center;
     }
+
     a { text-decoration: none; color: inherit; }
 
     /* ===================== Header ===================== */
@@ -25,6 +26,7 @@
       text-align: center;
       color: white;
     }
+
     header .banner {
       background-image: url('https://thumbs.dreamstime.com/b/arte-de-d-pixel-do-mercado-medieval-jogos-no-c%C3%A9u-azul-ai-gerou-da-cidade-322131946.jpg');
       background-size: cover;
@@ -37,6 +39,7 @@
       z-index: 0;
       filter: brightness(0.6);
     }
+
     header h1, header p {
       position: relative;
       z-index: 1;
@@ -44,6 +47,7 @@
       padding-top: 50px;
       text-shadow: 2px 2px 5px #00000088;
     }
+
     header h1 { font-size: 3rem; }
     header p { font-size: 1.2rem; }
 
@@ -53,6 +57,7 @@
       padding: 12px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
+
     nav a {
       color: white;
       margin: 0 15px;
@@ -60,6 +65,7 @@
       font-size: 1.1em;
       transition: color 0.3s;
     }
+
     nav a:hover { color: #f9f4e7; }
 
     /* ===================== Main ===================== */
@@ -97,6 +103,7 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       margin-top: 20px;
     }
+
     .lance-btn {
       background: linear-gradient(#8b5a2b, #5a3d1e);
       color: #fff9e6;
@@ -107,6 +114,7 @@
       margin-top: 10px;
       transition: background 0.3s;
     }
+
     .lance-btn:hover {
       background: linear-gradient(#a86d34, #6e4821);
     }
@@ -156,6 +164,9 @@
     /* ===================== Footer ===================== */
     footer { background: #5a3d1e; color: #fff; padding: 15px; margin-top: 40px; }
   </style>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -206,6 +217,7 @@
         <h3>Configurar Novo Leilão</h3>
         <input type="text" id="itemLeilao" placeholder="Nome do item">
         <input type="number" id="lanceMinimo" placeholder="Valor mínimo">
+        <input type="number" id="tempoInicial" placeholder="Tempo em segundos">
         <button class="lance-btn" onclick="iniciarLeilao()">Iniciar Leilão</button>
       </div>
       <div class="card" style="margin-top:20px;">
@@ -225,15 +237,15 @@
       <div class="container">
         <div class="player" id="player1">
           <h3>Jogador 1</h3>
-          <button class="button" onclick="toggleInventory('player1')">Abrir Inventário</button>
+          <button class="button" onclick="toggleInventory('player1')">📜 Abrir Inventário</button>
           <ul class="inventory" id="inventory-player1"></ul>
-          <button class="button" onclick="approveTrade('player1')">Aprovar Troca</button>
+          <button class="button" onclick="approveTrade('player1')">✅ Aprovar Troca</button>
         </div>
         <div class="player" id="player2">
           <h3>Jogador 2</h3>
-          <button class="button" onclick="toggleInventory('player2')">Abrir Inventário</button>
+          <button class="button" onclick="toggleInventory('player2')">📜 Abrir Inventário</button>
           <ul class="inventory" id="inventory-player2"></ul>
-          <button class="button" onclick="approveTrade('player2')">Aprovar Troca</button>
+          <button class="button" onclick="approveTrade('player2')">✅ Aprovar Troca</button>
         </div>
       </div>
       <div class="status" id="status"></div>
@@ -251,12 +263,9 @@
     <p>&copy; 2025 Mercadão Medieval</p>
   </footer>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
+  <!-- Scripts -->
   <script>
-    // ===================== CONFIG FIREBASE =====================
+    // ===================== Firebase =====================
     const firebaseConfig = {
       apiKey: "AIzaSyDT0bGAvX7MyLdw3RM8Jskw5T1-2jTnfoE",
       authDomain: "mercadao-6e54a.firebaseapp.com",
@@ -270,51 +279,133 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // ===================== LEILÃO =====================
+    // ===================== Leilão =====================
     function iniciarLeilao() {
       const item = document.getElementById("itemLeilao").value.trim();
       const lanceMinimo = parseFloat(document.getElementById("lanceMinimo").value);
-      if (!item || isNaN(lanceMinimo) || lanceMinimo <= 0) { alert("Preencha corretamente!"); return; }
-      db.ref("leilao").set({ item, lanceAtual: lanceMinimo, usuarioAtual: "Nenhum", tempoRestante: 60, ativo: true });
+      const tempoInicial = parseInt(document.getElementById("tempoInicial").value);
+
+      if (!item || isNaN(lanceMinimo) || lanceMinimo <= 0 || isNaN(tempoInicial) || tempoInicial <= 0) {
+        alert("Preencha corretamente todos os campos!");
+        return;
+      }
+
+      db.ref("leilao").set({
+        item,
+        lanceAtual: lanceMinimo,
+        usuarioAtual: "Nenhum",
+        tempoRestante: tempoInicial,
+        ativo: true
+      });
     }
 
     function darLance() {
       const usuario = document.getElementById("usuario").value.trim();
       const lance = parseFloat(document.getElementById("lance").value);
       if (!usuario || isNaN(lance)) { alert("Preencha corretamente!"); return; }
+
       db.ref("leilao").once("value").then(snapshot => {
         const leilao = snapshot.val();
         if (!leilao || !leilao.ativo) { alert("Nenhum leilão ativo!"); return; }
+
         if (lance > leilao.lanceAtual) {
-          db.ref("leilao").update({ lanceAtual: lance, usuarioAtual: usuario, tempoRestante: leilao.tempoRestante + 10 });
+          let novoTempo = leilao.tempoRestante;
+          if (novoTempo <= 20) novoTempo += 10;
+          db.ref("leilao").update({
+            lanceAtual: lance,
+            usuarioAtual: usuario,
+            tempoRestante: novoTempo
+          });
         } else { alert("O lance deve ser maior que o atual!"); }
       });
     }
 
     db.ref("leilao").on("value", snapshot => {
-      const leilao = snapshot.val(); if (!leilao) return;
+      const leilao = snapshot.val();
+      if (!leilao) return;
       document.getElementById("itemAtual").textContent = leilao.item;
       document.getElementById("lanceAtual").textContent = leilao.lanceAtual;
       document.getElementById("usuarioAtual").textContent = leilao.usuarioAtual;
       document.getElementById("timer").textContent = leilao.tempoRestante;
-      if (leilao.ativo && leilao.tempoRestante <= 0) { alert(`🏆 Vencedor: ${leilao.usuarioAtual} com R$ ${leilao.lanceAtual}!`); db.ref("leilao").update({ ativo: false }); }
+
+      if (leilao.ativo && leilao.tempoRestante <= 0) {
+        alert(`🏆 Vencedor: ${leilao.usuarioAtual} com R$ ${leilao.lanceAtual}!`);
+        db.ref("leilao").update({ ativo: false });
+      }
     });
 
     setInterval(() => {
-      db.ref("leilao").transaction(l => { if (l && l.ativo && l.tempoRestante>0) l.tempoRestante--; return l; });
+      db.ref("leilao").transaction(l => {
+        if (l && l.ativo && l.tempoRestante > 0) l.tempoRestante--;
+        return l;
+      });
     }, 1000);
 
-    // ===================== SALA DE TROCA =====================
+    // ===================== Sala de Troca =====================
     let selectedItems = { player1: { name: null, image: null }, player2: { name: null, image: null } };
-    let inventories = { player1: ['Espada Longa','Escudo de Ferro','Poção de Cura'], player2: ['Armadura de Ferro','Machado de Guerra','Poção de Força'] };
-    let approved = { player1:false, player2:false };
-    function getItemImage(item){const images={'Espada Longa':'https://cdn-icons-png.flaticon.com/512/616/616554.png','Escudo de Ferro':'https://cdn-icons-png.flaticon.com/512/616/616554.png','Poção de Cura':'https://cdn-icons-png.flaticon.com/512/590/590685.png','Armadura de Ferro':'https://cdn-icons-png.flaticon.com/512/616/616430.png','Machado de Guerra':'https://cdn-icons-png.flaticon.com/512/616/616554.png','Poção de Força':'https://cdn-icons-png.flaticon.com/512/590/590681.png'}; return images[item]||"https://via.placeholder.com/40"; }
-    function updateInventory(player){const inv=document.getElementById(`inventory-${player}`); inv.innerHTML=''; inventories[player].forEach(item=>{const li=document.createElement('li'); li.innerHTML=`<img src="${getItemImage(item)}" class="item-image">${item}`; li.onclick=(e)=>selectItem(player,item,getItemImage(item),e); inv.appendChild(li);});}
-    function toggleInventory(player){const inv=document.getElementById(`inventory-${player}`); inv.style.display=inv.style.display==='block'?'none':'block';}
-    function selectItem(player,item,image,event){const items=document.getElementById(`inventory-${player}`).getElementsByTagName('li'); for(let li of items) li.classList.remove('selected'); selectedItems[player]={name:item,image:image}; event.currentTarget.classList.add('selected'); document.getElementById('status').textContent=`${player==='player1'?'Jogador 1':'Jogador 2'} escolheu ${item} para a troca.`;}
-    function approveTrade(player){if(!selectedItems[player].name){alert(`Escolha um item primeiro, ${player}`);return;} approved[player]=true; document.getElementById('status').textContent=`${player} aprovou a troca.`; if(approved.player1 && approved.player2){ const temp=selectedItems.player1; selectedItems.player1=selectedItems.player2; selectedItems.player2=temp; inventories.player1=inventories.player1.map(i=>i===selectedItems.player2.name?selectedItems.player1.name:i); inventories.player2=inventories.player2.map(i=>i===selectedItems.player1.name?selectedItems.player2.name:i); updateInventory('player1');updateInventory('player2'); approved={player1:false,player2:false}; selectedItems={player1:{name:null,image:null},player2:{name:null,image:null}}; document.getElementById('status').textContent="✅ Troca concluída!"; } }
+    let inventories = {
+      player1: ['Espada Longa', 'Escudo de Ferro', 'Poção de Cura'],
+      player2: ['Armadura de Ferro', 'Machado de Guerra', 'Poção de Força']
+    };
+    let approved = { player1: false, player2: false };
 
-    document.addEventListener("DOMContentLoaded",()=>{ updateInventory('player1'); updateInventory('player2'); });
+    function getItemImage(item) {
+      const images = {
+        'Espada Longa': 'https://cdn-icons-png.flaticon.com/512/616/616554.png',
+        'Escudo de Ferro': 'https://cdn-icons-png.flaticon.com/512/616/616554.png',
+        'Poção de Cura': 'https://cdn-icons-png.flaticon.com/512/590/590685.png',
+        'Armadura de Ferro': 'https://cdn-icons-png.flaticon.com/512/616/616430.png',
+        'Machado de Guerra': 'https://cdn-icons-png.flaticon.com/512/616/616554.png',
+        'Poção de Força': 'https://cdn-icons-png.flaticon.com/512/590/590681.png'
+      };
+      return images[item] || "https://via.placeholder.com/40";
+    }
+
+    function updateInventory(player) {
+      const inv = document.getElementById(`inventory-${player}`);
+      inv.innerHTML = '';
+      inventories[player].forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `<img src="${getItemImage(item)}" class="item-image">${item}`;
+        li.onclick = (event) => selectItem(player, item, getItemImage(item), event);
+        inv.appendChild(li);
+      });
+    }
+
+    function toggleInventory(player) {
+      const inv = document.getElementById(`inventory-${player}`);
+      inv.style.display = inv.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function selectItem(player, item, image, event) {
+      const items = document.getElementById(`inventory-${player}`).getElementsByTagName('li');
+      for (let li of items) li.classList.remove('selected');
+      selectedItems[player] = { name: item, image: image };
+      event.currentTarget.classList.add('selected');
+      document.getElementById('status').textContent = `${player === 'player1' ? 'Jogador 1' : 'Jogador 2'} escolheu ${item} para a troca.`;
+    }
+
+    function approveTrade(player) {
+      if (!selectedItems[player].name) { alert(`Escolha um item primeiro, ${player}`); return; }
+      approved[player] = true;
+      document.getElementById('status').textContent = `${player} aprovou a troca.`;
+      if (approved.player1 && approved.player2) {
+        const temp = selectedItems.player1;
+        selectedItems.player1 = selectedItems.player2;
+        selectedItems.player2 = temp;
+        inventories.player1 = inventories.player1.map(i => i === selectedItems.player2.name ? selectedItems.player1.name : i);
+        inventories.player2 = inventories.player2.map(i => i === selectedItems.player1.name ? selectedItems.player2.name : i);
+        updateInventory('player1'); updateInventory('player2');
+        approved = { player1: false, player2: false };
+        selectedItems = { player1: { name: null, image: null }, player2: { name: null, image: null } };
+        document.getElementById('status').textContent = "✅ Troca concluída!";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      updateInventory('player1');
+      updateInventory('player2');
+    });
   </script>
 
 </body>
